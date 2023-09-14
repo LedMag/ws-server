@@ -1,0 +1,22 @@
+{
+  "name": "ws-server",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start:dev": "nodemon --watch 'server/**/*.ts' --exec 'ts-node' server/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc"
+  },
+  "author": "Magomed Aminov",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.5.9",
+    "@types/ws": "^8.5.5",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "ws": "^8.14.0"
+  }
+}
