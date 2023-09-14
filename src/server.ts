@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import ACTIONS from './actions';
 import { ActionType, ClientType, DataType } from './types';
 
-const PORT: number = parseInt(process.env.PORT || "8080");
+const PORT: number = parseInt(process.env.BACKEND_PORT || "8080");
 
 const validate = (data: DataType): DataType | null => {
   if (data.from && data.method) return data;
