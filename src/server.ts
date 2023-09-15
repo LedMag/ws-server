@@ -1,8 +1,18 @@
+import https from 'node:https';
+import { IncomingMessage } from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import WebSocket from 'ws';
 import ACTIONS from './actions';
 import { ActionType, ClientType, DataType } from './types';
 
-const PORT: number = parseInt(process.env.BACKEND_PORT || "8080");
+let wss: WebSocket.Server<typeof WebSocket, typeof IncomingMessage>;
+
+const PORT: number = parseInt(process.env.BACKEND_PORT || "8888");
+
+const isProd = !!process.env.BACKEND_PORT;
+
+console.log('isProd', isProd, PORT);
 
 const validate = (data: DataType): DataType | null => {
   if (data.from && data.method) return data;
@@ -187,7 +197,29 @@ const route = (method: ActionType) => {
   return routing.get(method);
 }
 
-const wss = new WebSocket.Server({ port: PORT });
+if(isProd) {
+  const certPath = path.join(__dirname, 'certs/fullchain.pem');
+  const keyPath = path.join(__dirname, 'certs/privkey.pem');
+  
+  const serverOptions = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath)
+  };
+  
+  const server = https.createServer(serverOptions, (req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('WebSocket server is running\n');
+  });
+  
+  wss = new WebSocket.Server({ server });
+
+  server.listen(PORT, () => {
+    console.log(`WebSocket server is listening on port ${PORT}`);
+  });
+} else {
+  wss = new WebSocket.Server({ port: PORT });
+}
+
 
 wss.on('connection', (ws: WebSocket) => {
   console.log('Client connected');
@@ -207,5 +239,3 @@ wss.on('connection', (ws: WebSocket) => {
     console.log('Client disconnected');
   });
 });
-
-console.log(`WebSocket server is listening on port ${PORT}`);

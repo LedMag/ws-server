@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "start:dev": "nodemon --watch 'server/**/*.ts' --exec 'ts-node' server/server.ts",
+    "start:dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc"
   },
