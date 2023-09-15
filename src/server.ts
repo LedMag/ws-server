@@ -8,9 +8,9 @@ import { ActionType, ClientType, DataType } from './types';
 
 let wss: WebSocket.Server<typeof WebSocket, typeof IncomingMessage>;
 
-const PORT: number = parseInt(process.env.BACKEND_PORT || "8888");
+const PORT: number = parseInt(process.env.BACKEND_PORT || "8080");
 
-const isProd = !!process.env.BACKEND_PORT;
+const isProd = false;
 
 console.log('isProd', isProd, PORT);
 
