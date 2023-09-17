@@ -9,7 +9,7 @@ import { ActionType, ClientType, DataType } from './types';
 let wss: WebSocket.Server<typeof WebSocket, typeof IncomingMessage>;
 let baseUrl: string;
 
-const PORT: number = parseInt(process.env.BACKEND_PORT || "8080");
+const PORT: number = 8888;
 
 const isProd = true;
 
@@ -286,6 +286,7 @@ if(isProd) {
 } else {
   baseUrl = 'http://localhost';
   wss = new WebSocket.Server({ port: PORT });
+  console.log(`WebSocket server is listening on port ${PORT}`);
 }
 
 
