@@ -15,7 +15,7 @@ const isProd = false;
 console.log('isProd', isProd, PORT);
 
 const validate = (data: DataType): DataType | null => {
-  if (data.from && data.method) return data;
+  if (data.from && data.action) return data;
   return null;
 }
 
@@ -40,7 +40,7 @@ const clients = new Map();
 //     clientsFiltered = clients.filter(client => client.clientId !== clientId)
 //     clientsFiltered.forEach(client => {
 //       const body: DataType = {
-//         method: ACTIONS.MESSAGE,
+//         action: ACTIONS.MESSAGE,
 //         clientId: client.clientId,
 //         message: `User ${clientId} has left room ${roomId}`
 //       }
@@ -66,7 +66,7 @@ const clients = new Map();
 //   clients.forEach(client => {
 //     const body: DataType = {
 //       clientId: client.clientId,
-//       method: ACTIONS.MESSAGE,
+//       action: ACTIONS.MESSAGE,
 //       message: `User ${clientId} is connected`
 //     }
 //     client.socket.send(JSON.stringify(body));
@@ -92,7 +92,7 @@ const clients = new Map();
 // const sendRoomsList = (data: DataType, socket: WebSocket) => {
 //   const body: DataType = {
 //     clientId: data.clientId,
-//     method: ACTIONS.SHARE_ROOMS,
+//     action: ACTIONS.SHARE_ROOMS,
 //     message: JSON.stringify({
 //       rooms: Array.from(rooms.keys()).map(room => JSON.parse(room)) || []
 //     })
@@ -104,7 +104,7 @@ const clients = new Map();
 const sendClientsList = (data: DataType, socket: WebSocket) => {
   const body: DataType = {
     from: data.from,
-    method: ACTIONS.SHARE_CLIENTS,
+    action: ACTIONS.SHARE_CLIENTS,
     message: {
       clients: Array.from(clients.keys()) || []
     }
@@ -112,20 +112,32 @@ const sendClientsList = (data: DataType, socket: WebSocket) => {
   socket.send(JSON.stringify(body));
 }
 
-const offer = (data: DataType) => {
-  const { from, to } = data;
+const sendOffer = (data: DataType) => {
+  const { from, room } = data;
   const message = data.message;
 
-  const socket: WebSocket = clients.get(to);
+  const clientsOfRoom: string[] = rooms.get(room);
 
-  const body = {
-    method: ACTIONS.OFFER,
-    from,
-    to,
-    message
-  };
+  console.log('Room ID: ', data);
 
-  socket.send(JSON.stringify(body));
+  console.log('All Clients: ', clientsOfRoom);
+
+  clientsOfRoom.forEach( client => {
+    if(client === from) return;
+    const socket = clients.get(client);
+
+    const body = {
+      action: ACTIONS.OFFER,
+      from,
+      to: client,
+      room,
+      message
+    };
+  
+    socket.send(JSON.stringify(body));
+  });
+
+  joinRoom(room, from);
 };
 
 const answer = (data: DataType) => {
@@ -135,7 +147,7 @@ const answer = (data: DataType) => {
   const socket: WebSocket = clients.get(to);
 
   const body = {
-    method: ACTIONS.ANSWER,
+    action: ACTIONS.ANSWER,
     from,
     to,
     message
@@ -151,7 +163,7 @@ const iceCandidate = (data: DataType) => {
   const socket: WebSocket = clients.get(to);
 
   const body = {
-    method: ACTIONS.ICE_CANDIDATE,
+    action: ACTIONS.ICE_CANDIDATE,
     from,
     to,
     message
@@ -160,21 +172,72 @@ const iceCandidate = (data: DataType) => {
   socket.send(JSON.stringify(body));
 };
 
-const login = (data: DataType, socket: WebSocket) => {
-  console.log('Login');
-  clients.set(data.from, socket);
+const login = (clientId: string, socket: WebSocket) => {
+  console.log('Login client: ', clientId);
+  clients.set(clientId, socket);
   clients.forEach( (socket, clientId) => {
-    sendClientsList({from: clientId, method: ACTIONS.SHARE_CLIENTS}, socket)
+    sendClientsList({from: clientId, action: ACTIONS.SHARE_CLIENTS}, socket)
   })
 }
 
-const logout = (data: DataType, socket: WebSocket) => {
-  console.log('Logout');
-  clients.delete(data.from);
+const logout = (clientId: string, socket: WebSocket) => {
+  console.log('Logout client: ', clientId);
+  clients.delete(clientId);
   clients.forEach( (socket, clientId) => {
-    sendClientsList({from: clientId, method: ACTIONS.SHARE_CLIENTS}, socket)
+    sendClientsList({from: clientId, action: ACTIONS.SHARE_CLIENTS}, socket)
   });
+};
+
+const joinRoom = (roomId: string, clientId: string) => {
+  console.log('Room ID: ', roomId);
+  console.log('Rooms: ', rooms.keys());
+  if(rooms.has(roomId)) {
+    const allClients: string[] = rooms.get(roomId);
+    
+    if(allClients?.includes(clientId)) return;
+
+    rooms.set(roomId, [...allClients, clientId]);
+  } else {
+    rooms.set(roomId, [clientId]);
+  }
+
+  console.log('Rooms after: ', rooms.keys());
 }
+
+const incomingCall = (data: DataType) => {
+  const { from, to } = data;
+  const message = data.message;
+
+  const socket: WebSocket = clients.get(to);
+
+  const body = {
+    action: ACTIONS.ICE_CANDIDATE,
+    from,
+    to,
+    message
+  };
+
+  socket.send(JSON.stringify(body));
+};
+
+const outcomingCall = (data: DataType) => {
+  const { from, to, room } = data;
+  const message = data.message;
+
+  joinRoom(room, from);
+
+  const socket: WebSocket = clients.get(to);
+
+  const body = {
+    action: ACTIONS.INCOMMING_CALL,
+    from,
+    to,
+    room,
+    message
+  };
+
+  socket.send(JSON.stringify(body));
+};
 
 const routing = new Map([
   [ACTIONS.MESSAGE, console.log],
@@ -186,15 +249,17 @@ const routing = new Map([
   [ACTIONS.ADD_PEER, console.log],
   [ACTIONS.REMOVE_PEER, console.log],
   [ACTIONS.ANSWER, answer],
-  [ACTIONS.OFFER, offer],
+  [ACTIONS.OFFER, sendOffer],
   [ACTIONS.ICE_CANDIDATE, iceCandidate],
   [ACTIONS.SESSION_DESCRIPTION, console.log],
   [ACTIONS.LOGIN, login],
-  [ACTIONS.LOGOUT, logout]
+  [ACTIONS.LOGOUT, logout],
+  [ACTIONS.INCOMMING_CALL, login],
+  [ACTIONS.OUTCOMMING_CALL, outcomingCall]
 ])
 
-const route = (method: ActionType) => {
-  return routing.get(method);
+const route = (action: ActionType) => {
+  return routing.get(action);
 }
 
 if(isProd) {
@@ -221,14 +286,20 @@ if(isProd) {
 }
 
 
-wss.on('connection', (ws: WebSocket) => {
-  console.log('Client connected');
+wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+  
+  const clientId = new URL(req.url, 'http://localhost').searchParams.get('clientId');
+  console.log('Client connected', clientId);
+  
+  login(clientId, ws);
+
+  console.log('Clients: ', clients.keys());
 
   ws.on('message', (message: string) => {
     const data = convertToIncommingData(message);
-    console.log(`Received: ${data.method}`);
+    console.log(`Received: ${data.action}`);
     if (data) {
-      const fn = route(data.method);
+      const fn = route(data.action);
       if (fn) fn(data, ws);
     } else {
       ws.send('Data is not valid');
@@ -236,6 +307,8 @@ wss.on('connection', (ws: WebSocket) => {
   });
 
   ws.on('close', () => {
-    console.log('Client disconnected');
+    console.log('Client disconnected: ', clientId);
+
+    logout(clientId, ws);
   });
 });
