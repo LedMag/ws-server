@@ -7,10 +7,11 @@ import ACTIONS from './actions';
 import { ActionType, ClientType, DataType } from './types';
 
 let wss: WebSocket.Server<typeof WebSocket, typeof IncomingMessage>;
+let baseUrl: string;
 
 const PORT: number = parseInt(process.env.BACKEND_PORT || "8080");
 
-const isProd = false;
+const isProd = true;
 
 console.log('isProd', isProd, PORT);
 
@@ -263,6 +264,7 @@ const route = (action: ActionType) => {
 }
 
 if(isProd) {
+  baseUrl = 'https://911531b.online-server.cloud/';
   const certPath = path.join(__dirname, 'certs/fullchain.pem');
   const keyPath = path.join(__dirname, 'certs/privkey.pem');
   
@@ -282,13 +284,14 @@ if(isProd) {
     console.log(`WebSocket server is listening on port ${PORT}`);
   });
 } else {
+  baseUrl = 'http://localhost';
   wss = new WebSocket.Server({ port: PORT });
 }
 
 
 wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
   
-  const clientId = new URL(req.url, 'http://localhost').searchParams.get('clientId');
+  const clientId = new URL(req.url, baseUrl).searchParams.get('clientId');
   console.log('Client connected', clientId);
   
   login(clientId, ws);
