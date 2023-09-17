@@ -265,8 +265,8 @@ const route = (action: ActionType) => {
 
 if(isProd) {
   baseUrl = 'https://911531b.online-server.cloud/';
-  const certPath = path.join(__dirname, 'certs/fullchain.pem');
-  const keyPath = path.join(__dirname, 'certs/privkey.pem');
+  const certPath = path.join(__dirname, '../certs/fullchain.pem');
+  const keyPath = path.join(__dirname, '../certs/privkey.pem');
   
   const serverOptions = {
     cert: fs.readFileSync(certPath),
