@@ -1,19 +1,11 @@
-import https from 'node:https';
-import { IncomingMessage } from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
+import { IncomingMessage, createServer } from 'node:http';
 import WebSocket from 'ws';
 import ACTIONS from './actions';
 import { ActionType, ClientType, DataType } from './types';
 
 let wss: WebSocket.Server<typeof WebSocket, typeof IncomingMessage>;
-let baseUrl: string;
 
-const PORT: number = 8888;
-
-const isProd = true;
-
-console.log('isProd', isProd, PORT);
+const PORT: number = +process.env.BACKEND_PORT || 8080;
 
 const validate = (data: DataType): DataType | null => {
   if (data.from && data.action) return data;
@@ -123,8 +115,8 @@ const sendOffer = (data: DataType) => {
 
   console.log('All Clients: ', clientsOfRoom);
 
-  clientsOfRoom.forEach( client => {
-    if(client === from) return;
+  clientsOfRoom.forEach(client => {
+    if (client === from) return;
     const socket = clients.get(client);
 
     const body = {
@@ -134,7 +126,7 @@ const sendOffer = (data: DataType) => {
       room,
       message
     };
-  
+
     socket.send(JSON.stringify(body));
   });
 
@@ -176,26 +168,26 @@ const iceCandidate = (data: DataType) => {
 const login = (clientId: string, socket: WebSocket) => {
   console.log('Login client: ', clientId);
   clients.set(clientId, socket);
-  clients.forEach( (socket, clientId) => {
-    sendClientsList({from: clientId, action: ACTIONS.SHARE_CLIENTS}, socket)
+  clients.forEach((socket, clientId) => {
+    sendClientsList({ from: clientId, action: ACTIONS.SHARE_CLIENTS }, socket)
   })
 }
 
 const logout = (clientId: string, socket: WebSocket) => {
   console.log('Logout client: ', clientId);
   clients.delete(clientId);
-  clients.forEach( (socket, clientId) => {
-    sendClientsList({from: clientId, action: ACTIONS.SHARE_CLIENTS}, socket)
+  clients.forEach((socket, clientId) => {
+    sendClientsList({ from: clientId, action: ACTIONS.SHARE_CLIENTS }, socket)
   });
 };
 
 const joinRoom = (roomId: string, clientId: string) => {
   console.log('Room ID: ', roomId);
   console.log('Rooms: ', rooms.keys());
-  if(rooms.has(roomId)) {
+  if (rooms.has(roomId)) {
     const allClients: string[] = rooms.get(roomId);
-    
-    if(allClients?.includes(clientId)) return;
+
+    if (allClients?.includes(clientId)) return;
 
     rooms.set(roomId, [...allClients, clientId]);
   } else {
@@ -263,38 +255,40 @@ const route = (action: ActionType) => {
   return routing.get(action);
 }
 
-if(isProd) {
-  baseUrl = 'https://911531b.online-server.cloud/';
-  const certPath = path.join(__dirname, '../certs/fullchain.pem');
-  const keyPath = path.join(__dirname, '../certs/privkey.pem');
-  
-  const serverOptions = {
-    cert: fs.readFileSync(certPath),
-    key: fs.readFileSync(keyPath)
-  };
-  
-  const server = https.createServer(serverOptions, (req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('WebSocket server is running\n');
-  });
-  
-  wss = new WebSocket.Server({ server });
+// const certPath = path.join(__dirname, '../certs/fullchain.pem');
+// const keyPath = path.join(__dirname, '../certs/privkey.pem');
 
-  server.listen(PORT, () => {
-    console.log(`WebSocket server is listening on port ${PORT}`);
-  });
-} else {
-  baseUrl = 'http://localhost';
-  wss = new WebSocket.Server({ port: PORT });
+// const serverOptions = {
+//   cert: fs.readFileSync(certPath),
+//   key: fs.readFileSync(keyPath)
+// };
+
+// const server = https.createServer(serverOptions, (req, res) => {
+//   res.writeHead(200, { 'Content-Type': 'text/plain' });
+//   res.end('WebSocket server is running\n');
+// });
+
+// server.listen(PORT, () => {
+//   console.log(`WebSocket server is listening on port ${PORT}`);
+// });
+
+const server = createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('WebSocket server is running\n');
+});
+
+server.listen(PORT, () => {
   console.log(`WebSocket server is listening on port ${PORT}`);
-}
+});
 
+wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-  
+  const baseUrl = 'http://localhost';
+
   const clientId = new URL(req.url, baseUrl).searchParams.get('clientId');
   console.log('Client connected', clientId);
-  
+
   login(clientId, ws);
 
   console.log('Clients: ', clients.keys());
